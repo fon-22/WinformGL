@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="OpenTK" Version="4.6.7" />
     <PackageReference Include="OpenTK.WinForms" Version="4.0.0-pre.6" />
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.4" />

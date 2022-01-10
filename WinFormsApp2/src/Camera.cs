@@ -41,7 +41,10 @@ namespace WinFormsApp2.src
 
         public Vector3 Right => _right;
 
-        // パフォーマンスを向上させるためにプロパティがセットされたらすぐに角度をラジアンに変換する。
+
+
+
+        // 角度が更新されたらその都度角度計算(Pitch)
         public float Pitch
         {
             get => MathHelper.RadiansToDegrees(_pitch);
@@ -55,7 +58,7 @@ namespace WinFormsApp2.src
             }
         }
 
-        // パフォーマンスを向上させるためにプロパティがセットされたらすぐに角度をラジアンに変換する。
+        // 角度が更新されたらその都度角度計算(Yaw)
         public float Yaw
         {
             get => MathHelper.RadiansToDegrees(_yaw);
@@ -66,10 +69,7 @@ namespace WinFormsApp2.src
             }
         }
 
-        //  FOV（Field of View）とは、カメラの視野の垂直方向の角度のこと。
-        // これについては、以前のチュートリアルでより深く説明しました。
-        // しかし、このチュートリアルでは、これを使用してズーム機能をシミュレートする方法についても学びました。
-        // パフォーマンスを向上させるため、プロパティを設定した時点で度数からラジアンへ変換しています。
+        //
         public float Fov
         {
             get => MathHelper.RadiansToDegrees(_fov);
@@ -80,20 +80,26 @@ namespace WinFormsApp2.src
             }
         }
 
-        // 毎フレーム呼ばれる
+
+
+
+
+
+
+        // ビュー行列生成
         public Matrix4 GetViewMatrix()
         {
             //第一引数がカメラ位置、ターゲット位置、ワールド空間の上ベクトル
             return Matrix4.LookAt(Position, Position + _front, _up);
         }
 
-        // ここまでの方法と同じ方法で射影行列を求める
+        // プロジェクション行列生成
         public Matrix4 GetProjectionMatrix()
         {
             return Matrix4.CreatePerspectiveFieldOfView(_fov, AspectRatio, 0.01f, 100f);
         }
 
-        // この関数は、Webチュートリアルで学んだ数学のいくつかを使って、方向の頂点を更新します。
+        // 角度が更新されたらベクトル計算
         private void UpdateVectors()
         {
 

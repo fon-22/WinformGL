@@ -14,41 +14,46 @@ using OpenTK.Mathematics;
 using OpenTK.WinForms;
 using WinFormsApp2.src;
 
-namespace WinFormsApp2
+namespace WinFormsApp2.src
 {
     public partial class Form1 : Form
     {
         private bool _loaded;
 
-        private readonly float[] _vertices1 = {
+        private float[] _vertices1 = {
              0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f,  1.0f,  // top right
              0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f,  // bottom right
             -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f,  0.0f,  // bottom left
             -0.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f,  0.0f,  1.0f   // top left
         };
 
-        private readonly float[] _vertices2 = {
+        private float[] _vertices2 = {
              1.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  1.0f,  1.0f,  // top right
              1.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  1.0f,  0.0f,  // bottom right
             -1.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f,  0.0f,  // bottom left
             -1.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f,  0.0f,  1.0f   // top left
         };
 
-        private readonly uint[] indices = {  // note that we start from 0!
+        private uint[] _indices = {  // note that we start from 0!
             0, 1, 3,   // first triangle
             1, 2, 3    // second triangle
         };
 
-        private Shader _shader1 = null!;
-        private Shader _shader2 = null!;
+        private List<string> modelPath = new List<string>();
 
-        private Texture _texture1 = null!;
-        private Texture _texture2 = null!;
+        private List<float[]> Vertex = new List<float[]>();
+        private List<uint[]> Idx = new List<uint[]>();
 
-        private Model _VAO1;
-        private Model _VAO2;
 
-        private Camera _camera = null!;
+
+        private ShaderInfo _shaderinfo;
+
+        private List<Shader> _shader = new List<Shader>();
+        private List<string> texPath = new List<string>();
+
+
+
+        private Camera _camera;
 
         private bool IsFPS = true;
 
@@ -59,13 +64,13 @@ namespace WinFormsApp2
         private INativeInput _nativeInput;
 
 
-        private Stopwatch _timer1 = null!;
+        public Stopwatch _timer1 = null!;
         private System.Windows.Forms.Timer _timer = null!;
 
 
-        private Dictionary<string, int> _modelidx = new Dictionary<string, int>();
-
-
+        private ListBox ModelBox = new ListBox();
+        private ListBox ShaderBox = new ListBox();
+        private ListBox TextureBox = new ListBox();
 
 
         const float FPScameraSpeed = 0.5f;
@@ -78,7 +83,24 @@ namespace WinFormsApp2
 
         private void glControl_Load(object? sender, EventArgs e)
         {
+
             glControl1.Paint += glControl_Paint;
+            glControl1.Resize += glControl_Resize;
+            
+            //タブのリストのそれぞれの初期化
+            ModelBox.Dock = DockStyle.Fill;
+            tabPage1.Controls.Add(ModelBox);
+
+            ShaderBox.Dock = DockStyle.Fill;
+            tabPage2.Controls.Add(ShaderBox);
+
+            TextureBox.Dock = DockStyle.Fill;
+            tabPage3.Controls.Add(TextureBox);
+
+            //リスト内にものがある場合は表示(中に何もない場合はクラッシュしてしまうのでクラッシュ防止用)
+            if (!(modelPath.Count == 0))
+                listBox1.Items.AddRange(modelPath.ToArray());
+
 
 
             _timer = new System.Windows.Forms.Timer();
@@ -92,57 +114,35 @@ namespace WinFormsApp2
             _timer.Start();
 
 
-
             _timer1 = new Stopwatch();
             _timer1.Start();
 
-
-            //Generate VAO
-            _VAO1 = Model.GenVAO(_vertices1, indices);
-            _VAO2 = Model.GenVAO(_vertices2, indices);
+            
 
 
-            //Generate Textures and set to Uniforms
-            _texture1 = Texture.LoadFromFile("D:/CGDevelop/WebGL/WebGLTest/awesomeface.png");
-            _texture2 = Texture.LoadFromFile("D:/CGDevelop/WebGL/WebGLTest/Lava.png");
+            Vertex.Add(_vertices1);
+            Vertex.Add(_vertices2);
+
+            Idx.Add(_indices);
+
+            Shader _shader1 = new Shader("C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/Shader.vert", "C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/Texture.frag");
+            Shader _shader2 = new Shader("C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/Shader.vert", "C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/Shader2.frag");
+            _shader.Add(_shader1);
+            _shader.Add(_shader2);
 
 
-            _shader1 = new Shader("C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/shader.vert", "C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/shader1.frag");
-            _shader1.UseProgram();
-
-
-            int tex0Location = GL.GetUniformLocation(_shader1.Handle, "texture0");
-            GL.Uniform1(tex0Location, 0);
-            //_shader.SetInt("texture0", 0);
-
-            int tex1Location = GL.GetUniformLocation(_shader1.Handle, "texture1");
-            GL.Uniform1(tex1Location, 1);
-            //_shader.SetInt("texture1", 1);
-
-
-            _shader2 = new Shader("C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/shader.vert", "C:/dev/OpenGL/WindowsFormsApp1/WindowsFormsApp1/src/shader/shader2.frag");
-            _shader2.UseProgram();
-
-
-            int tex0Location2 = GL.GetUniformLocation(_shader2.Handle, "texture0");
-            GL.Uniform1(tex0Location2, 0);
-            //_shader.SetInt("texture0", 0);
-
-            int tex1Location2 = GL.GetUniformLocation(_shader2.Handle, "texture1");
-            GL.Uniform1(tex1Location2, 1);
-            //_shader.SetInt("texture1", 1);
-
-
-
+            string s = "D:/CGDevelop/WebGL/WebGLTest/awesomeface.png";
+            string h = "D:/CGDevelop/WebGL/WebGLTest/Lava.png";
+            texPath.Add(s);
+            texPath.Add(h);
 
 
             //カメラの初期化(位置とウィンドウ)
-            _camera = new Camera(Vector3.UnitZ * 2, Width / (float)Height);
+            GL.Viewport(0, 0, glControl1.ClientSize.Width, glControl1.ClientSize.Height);
+            _camera = new Camera(Vector3.UnitZ * 2, (float)glControl1.ClientSize.Width / (float)glControl1.ClientSize.Height);
 
 
-
-
-
+            #region CameraControl
             glControl1.MouseDown += (sender, e) =>
             {
                 glControl1.Focus();
@@ -162,8 +162,7 @@ namespace WinFormsApp2
                 Log($"WinForms Key up: {e.KeyCode}");
             glControl1.KeyPress += (sender, e) =>
                 Log($"WinForms Key press: {e.KeyChar}");
-
-
+            #endregion
         }
 
 
@@ -171,7 +170,6 @@ namespace WinFormsApp2
         {
 
             Render();
-
 
         }
 
@@ -183,73 +181,38 @@ namespace WinFormsApp2
             GL.Enable(EnableCap.DepthTest);
 
 
-            _texture1.Bind(TextureUnit.Texture0);
-            _texture2.Bind(TextureUnit.Texture1);
+            _shaderinfo = new ShaderInfo(_timer1, _camera, Vertex, Idx, _shader, texPath);
+            _shaderinfo.GenUniform();
 
+            //model = Matrix4.Identity * Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(tValue * 20f));
+            //_shader2.SetMatrix4("model", model);
 
-
-            //Time
-            double timeValue = _timer1.Elapsed.TotalSeconds;
-            float tValue = (float)(timeValue);
-
-
-
-
-
-
-
-            _shader1.UseProgram();
-
-
-            //Register as Uniform
-
-            _shader1.SetFloat("iTime", tValue);
-            //int timeLocation = GL.GetUniformLocation(_shader1.Handle, "iTime");
-            //GL.Uniform1(timeLocation, tValue);
-
-
-
-            var model = Matrix4.Identity * Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(tValue * 10f));
-            _shader1.SetMatrix4("model", model);
-            _shader1.SetMatrix4("view", _camera.GetViewMatrix());
-            _shader1.SetMatrix4("projection", _camera.GetProjectionMatrix());
-
-
-            
-            //first Object Draw
-            _VAO1.Bind();
-            GL.DrawElements(PrimitiveType.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
-
-
-
-            _texture2.Bind(TextureUnit.Texture0);
-
-
-
-            _shader2.UseProgram();
-
-            //_shader2.SetFloat("iTime", tValue);
-            int timeLocation2 = GL.GetUniformLocation(_shader2.Handle, "iTime");
-            GL.Uniform1(timeLocation2, tValue);
-
-            _shader2.SetMatrix4("view", _camera.GetViewMatrix());
-            _shader2.SetMatrix4("projection", _camera.GetProjectionMatrix());
-
-
-            model = Matrix4.Identity * Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(tValue * 20f));
-            _shader2.SetMatrix4("model", model);
-
-            //Second Object Draw
-            _VAO2.Bind();
-            GL.DrawElements(PrimitiveType.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
-
-
-
+            ////Second Object Draw
+            //_VAO2.Bind();
+            //GL.DrawElements(PrimitiveType.Triangles, indices.Length, DrawElementsType.UnsignedInt, 0);
 
             glControl1.SwapBuffers();
+
         }
 
-        private void UpdateCamera(EventArgs s)
+        private void glControl_Resize(object sender, EventArgs e)
+        {
+            glControl1.MakeCurrent();
+            Log("Resized");
+            if (glControl1.ClientSize.Height == 0)
+                glControl1.ClientSize = new System.Drawing.Size(glControl1.ClientSize.Width, 1);
+
+
+            GL.Viewport(0, 0, glControl1.ClientSize.Width, glControl1.ClientSize.Height);
+            // リサイズされたらアスペクト比も更新
+            _camera.AspectRatio = (float)glControl1.ClientSize.Width / (float)glControl1.ClientSize.Height;
+
+            //glControl.Dock = DockStyle.Right;
+
+   
+        }
+
+        private void UpdateCamera()
         {
 
 
@@ -396,8 +359,8 @@ namespace WinFormsApp2
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            Debug.WriteLine("timer hello");
-            UpdateCamera(EventArgs.Empty);
+            //Debug.WriteLine("timer hello");
+            UpdateCamera();
 
         }
 
@@ -405,5 +368,105 @@ namespace WinFormsApp2
         {
             Debug.WriteLine("glClick");
         }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofDialog = new OpenFileDialog();
+
+            // デフォルトのフォルダを指定する
+            ofDialog.InitialDirectory = @"D:";
+            //ファイルフィルタ 
+            ofDialog.Filter = "Model File(*.fbx,*.obj,*.dae,*.tif)|*.fbx;*.obj;*.dae;*.tif|FBX(*.fbx)|*.fbx|Wavefront OBJ(*.obj)|*.obj|Collada(*.dae)|*.dae";
+            //ダイアログのタイトルを指定する
+            ofDialog.Title = "3Dモデルを選択";
+
+            //ダイアログを表示する
+            if (ofDialog.ShowDialog() == DialogResult.OK)
+            {
+                modelPath.Add(ofDialog.FileName);
+                listBox1.Items.AddRange(modelPath.ToArray());
+                ModelBox.Items.Clear();
+                ModelBox.Items.AddRange(modelPath.ToArray());
+                Debug.WriteLine(ofDialog.FileName);
+            }
+            else
+            {
+                Debug.WriteLine("キャンセルされました");
+            }
+
+            // オブジェクトを破棄する
+            ofDialog.Dispose();
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofDialog = new OpenFileDialog();
+
+  
+            ofDialog.InitialDirectory = @"D:";
+ 
+            ofDialog.Filter = "Shader File(*.vert,*.frag,*.glsl,*.tif)|*.vert;*.frag;*.glsl;*.tif|Vertex(*.vert)|*.vert|Fragment(*.frag)|*.frag|GLSL(*.glsl)|*.glsl";
+
+            ofDialog.Title = "シェーダーを選択";
+
+
+            if (ofDialog.ShowDialog() == DialogResult.OK)
+            {
+                modelPath.Add(ofDialog.FileName);
+                listBox1.Items.AddRange(modelPath.ToArray());
+                ShaderBox.Items.Clear();
+                ShaderBox.Items.AddRange(modelPath.ToArray());
+
+                Debug.WriteLine(ofDialog.FileName);
+            }
+            else
+            {
+                Debug.WriteLine("キャンセルされました");
+            }
+
+            // オブジェクトを破棄する
+            ofDialog.Dispose();
+        }
+        private void button3_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofDialog = new OpenFileDialog();
+
+
+            ofDialog.InitialDirectory = @"D:";
+ 
+            ofDialog.Filter = "Image File(*.bmp,*.jpg,*.png,*.tif)|*.bmp;*.jpg;*.png;*.tif|Bitmap(*.bmp)|*.bmp|Jpeg(*.jpg)|*.jpg|PNG(*.png)|*.png";
+         
+            ofDialog.Title = "テクスチャを選択";
+
+       
+            if (ofDialog.ShowDialog() == DialogResult.OK)
+            {
+                modelPath.Add(ofDialog.FileName);
+                listBox1.Items.AddRange(texPath.ToArray());
+                TextureBox.Items.Clear();
+                TextureBox.Items.AddRange(texPath.ToArray());
+
+                Debug.WriteLine(ofDialog.FileName);
+            }
+            else
+            {
+                Debug.WriteLine("キャンセルされました");
+            }
+
+            // オブジェクトを破棄する
+            ofDialog.Dispose();
+        }
+        private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void tabPage1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+
+
+
     }
 }
